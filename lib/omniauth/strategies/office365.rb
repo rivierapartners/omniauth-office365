@@ -4,36 +4,36 @@ module OmniAuth
   module Strategies
     class Office365 < OmniAuth::Strategies::OAuth2
       option :client_options, {
-                                site: 'https://outlook.office365.com/',
-                                token_url: 'https://login.windows.net/rivierapartners.com/oauth2/token',
-                                authorize_url: 'https://login.windows.net/rivierapartners.com/oauth2/authorize'
-                            }
+          site: 'https://outlook.office365.com/',
+          token_url: 'https://login.windows.net/rivierapartners.com/oauth2/token',
+          authorize_url: 'https://login.windows.net/rivierapartners.com/oauth2/authorize'
+      }
 
-      def request_phase
-        super
-      end
+      option :authorize_params, {
+          resource: 'https://graph.windows.net/'
+      }
 
-      def authorize_params
-        params = super
-        params[:resource] = 'https://outlook.office365.com/'
-        params
-      end
-
-      uid { raw_info["MailboxGuid"] }
+      uid { raw_info["objectId"] }
 
       info do
         {
-            'email' => raw_info["Id"],
-            'name' => raw_info["DisplayName"],
-            'nickname' => raw_info["Alias"],
+            'email' => raw_info["userPrincipalName"],
+            'name' => [raw_info["givenName"], raw_info["surname"]].join(' '),
+            'nickname' => raw_info["displayName"],
             'first_name' => raw_info["first_name"],
             'last_name' => raw_info["last_name"]
         }
       end
 
+      extra do
+        {
+            'raw_info' => raw_info
+        }
+      end
+
       def raw_info
-        @raw_info ||= access_token.get('/ews/odata/me').parsed
-        names = @raw_info["DisplayName"].split(' ')
+        @raw_info ||= access_token.get(authorize_params.resource + 'Me?api-version=1.5').parsed
+        names = @raw_info["displayName"].split(' ')
         @raw_info["first_name"] = names.first
         @raw_info["last_name"] = names[1..-1].join(' ')
         @raw_info
